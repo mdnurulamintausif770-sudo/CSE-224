@@ -1,0 +1,298 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-sans: "Public Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root,
+[data-tab-theme="survey"] {
+  --tab-primary: #a855f7;
+  --tab-secondary: #c084fc;
+  --tab-primary-rgb: 168, 85, 247;
+  --tab-secondary-rgb: 192, 132, 252;
+}
+
+[data-tab-theme="consultation"] {
+  --tab-primary: #38bdf8;
+  --tab-secondary: #7dd3fc;
+  --tab-primary-rgb: 56, 189, 248;
+  --tab-secondary-rgb: 125, 211, 252;
+}
+
+[data-tab-theme="tracker"] {
+  --tab-primary: #2dd4bf;
+  --tab-secondary: #5eead4;
+  --tab-primary-rgb: 45, 212, 191;
+  --tab-secondary-rgb: 94, 234, 212;
+}
+
+[data-tab-theme="guide"] {
+  --tab-primary: #34d399;
+  --tab-secondary: #6ee7b7;
+  --tab-primary-rgb: 52, 211, 153;
+  --tab-secondary-rgb: 110, 231, 183;
+}
+
+[data-tab-theme="routine"] {
+  --tab-primary: #818cf8;
+  --tab-secondary: #a5b4fc;
+  --tab-primary-rgb: 129, 140, 248;
+  --tab-secondary-rgb: 165, 180, 252;
+}
+
+[data-tab-theme="dbms"] {
+  --tab-primary: #e879f9;
+  --tab-secondary: #c084fc;
+  --tab-primary-rgb: 232, 121, 249;
+  --tab-secondary-rgb: 192, 132, 252;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: #F5F3FF;
+    background-color: #090514;
+    color-scheme: dark;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.purple-cosmos-bg {
+  background-color: #090514;
+  background-image:
+    radial-gradient(circle at 16% 12%, rgba(var(--tab-primary-rgb), 0.12) 0%, transparent 42%),
+    radial-gradient(circle at 86% 18%, rgba(var(--tab-secondary-rgb), 0.09) 0%, transparent 44%),
+    radial-gradient(circle at 50% 88%, rgba(var(--tab-primary-rgb), 0.08) 0%, transparent 46%);
+  transition: background-color 350ms ease;
+}
+
+.tab-theme-transition {
+  transition:
+    color 300ms ease,
+    background-color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease,
+    opacity 300ms ease;
+}
+
+.tab-header-bar {
+  background-color: rgba(13, 7, 29, 0.9);
+  border-bottom: 1px solid rgba(var(--tab-primary-rgb), 0.24);
+  box-shadow: 0 4px 28px rgba(var(--tab-primary-rgb), 0.06);
+  transition: border-color 320ms ease, box-shadow 320ms ease;
+}
+
+.tab-sidebar-shell {
+  background-color: rgba(13, 7, 29, 0.95);
+  border-right: 1px solid rgba(var(--tab-primary-rgb), 0.24);
+  transition: border-color 320ms ease;
+}
+
+.tab-nav-active {
+  background-color: rgba(var(--tab-primary-rgb), 0.16);
+  color: var(--tab-secondary);
+  border: 1px solid rgba(var(--tab-secondary-rgb), 0.42);
+  box-shadow: 0 0 18px rgba(var(--tab-primary-rgb), 0.16);
+}
+
+.tab-surface-card {
+  background-color: rgba(18, 9, 38, 0.9);
+  border: 1px solid rgba(var(--tab-primary-rgb), 0.24);
+  box-shadow: 0 0 30px rgba(var(--tab-primary-rgb), 0.08);
+  transition: border-color 320ms ease, box-shadow 320ms ease, background-color 320ms ease;
+}
+
+.tab-divider {
+  border-color: rgba(var(--tab-primary-rgb), 0.18);
+  transition: border-color 320ms ease;
+}
+
+.tab-accent-text {
+  color: var(--tab-secondary);
+  transition: color 300ms ease;
+}
+
+.tab-accent-dot {
+  background-color: var(--tab-primary);
+  box-shadow: 0 0 10px rgba(var(--tab-primary-rgb), 0.7);
+  transition: background-color 300ms ease, box-shadow 300ms ease;
+}
+
+.tab-cta-btn {
+  background-color: var(--tab-primary);
+  color: #090514;
+  box-shadow: 0 0 20px rgba(var(--tab-primary-rgb), 0.3);
+  transition: background-color 220ms ease, box-shadow 280ms ease, opacity 200ms ease;
+}
+
+.tab-cta-btn:hover:not(:disabled) {
+  background-color: var(--tab-secondary);
+  box-shadow: 0 0 24px rgba(var(--tab-secondary-rgb), 0.38);
+}
+
+.tab-outline-btn {
+  background-color: #090514;
+  border: 1px solid rgba(var(--tab-primary-rgb), 0.32);
+  color: #ede9fe;
+  transition: border-color 240ms ease, background-color 240ms ease, color 240ms ease;
+}
+
+.tab-outline-btn:hover:not(:disabled) {
+  border-color: rgba(var(--tab-secondary-rgb), 0.65);
+  background-color: rgba(var(--tab-primary-rgb), 0.12);
+}
+
+.tab-chip-active {
+  background-color: rgba(var(--tab-primary-rgb), 0.22);
+  border-color: rgba(var(--tab-secondary-rgb), 0.6);
+  color: #f8fafc;
+  box-shadow: 0 0 14px rgba(var(--tab-primary-rgb), 0.18);
+}
+
+.tab-input {
+  background-color: #090514;
+  border: 1px solid rgba(var(--tab-primary-rgb), 0.28);
+  color: #f5f3ff;
+  transition: border-color 250ms ease, box-shadow 250ms ease;
+}
+
+.tab-input:focus {
+  outline: none;
+  border-color: var(--tab-secondary);
+  box-shadow: 0 0 0 2px rgba(var(--tab-primary-rgb), 0.35);
+}
+
+.tab-bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(var(--tab-secondary-rgb), 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(var(--tab-secondary-rgb), 0.055) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at 60% 35%, black 30%, transparent 90%);
+  -webkit-mask-image: radial-gradient(circle at 60% 35%, black 30%, transparent 90%);
+  transition: opacity 400ms ease;
+}
+
+.tab-bg-grid-center {
+  background-image:
+    linear-gradient(to right, rgba(var(--tab-secondary-rgb), 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(var(--tab-secondary-rgb), 0.055) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at 50% 50%, black 26%, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 26%, transparent 80%);
+}
+
+.tab-bg-orb-1 {
+  background: radial-gradient(
+    circle,
+    rgba(var(--tab-primary-rgb), 0.17) 0%,
+    rgba(var(--tab-primary-rgb), 0.05) 52%,
+    transparent 74%
+  );
+  transition: background 450ms ease, opacity 450ms ease;
+}
+
+.tab-bg-orb-2 {
+  background: radial-gradient(
+    circle,
+    rgba(var(--tab-secondary-rgb), 0.13) 0%,
+    rgba(var(--tab-primary-rgb), 0.04) 50%,
+    transparent 74%
+  );
+  transition: background 450ms ease, opacity 450ms ease;
+}
+
+.tab-bg-center-halo {
+  background: radial-gradient(
+    circle,
+    rgba(var(--tab-primary-rgb), 0.16) 0%,
+    rgba(var(--tab-secondary-rgb), 0.07) 44%,
+    transparent 72%
+  );
+}
+
+.tab-particle {
+  background-color: rgba(var(--tab-secondary-rgb), 0.62);
+  transition: background-color 400ms ease;
+}
+
+@keyframes grid-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(44px, 44px, 0);
+  }
+}
+
+@keyframes orb-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.07);
+    opacity: 0.72;
+  }
+}
+
+@keyframes orb-ring-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes voice-wave {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.16);
+    opacity: 0.75;
+  }
+}
+
+.animate-grid-drift {
+  animation: grid-drift 22s linear infinite;
+}
+
+.animate-orb-pulse {
+  animation: orb-pulse 6s ease-in-out infinite;
+}
+
+.animate-orb-ring {
+  animation: orb-ring-spin 30s linear infinite;
+}
+
+.animate-voice-wave {
+  animation: voice-wave 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-grid-drift,
+  .animate-orb-pulse,
+  .animate-orb-ring,
+  .animate-voice-wave {
+    animation: none;
+  }
+  .tab-theme-transition,
+  .tab-surface-card,
+  .tab-header-bar,
+  .tab-sidebar-shell,
+  .tab-cta-btn {
+    transition: none;
+  }
+}
