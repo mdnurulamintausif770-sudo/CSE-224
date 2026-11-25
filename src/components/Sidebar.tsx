@@ -7,7 +7,9 @@ import {
   Database,
   GitBranch,
   HeartPulse,
+  Lock,
   Shield,
+  ShieldCheck,
   Stethoscope,
   Thermometer,
   Users,
@@ -20,6 +22,7 @@ interface SidebarProps {
   onSelectTab: (tab: ActiveTab) => void;
   activeRole: ActiveRole;
   onSelectRole: (role: ActiveRole) => void;
+  isAdminAuthenticated: boolean;
   onOpenOrb: () => void;
   studentCount: number;
   reportCount: number;
@@ -28,7 +31,7 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
-const NAV_ITEMS: Array<{
+const STUDENT_NAV_ITEMS: Array<{
   id: ActiveTab;
   label: string;
   icon: typeof Database;
@@ -38,15 +41,28 @@ const NAV_ITEMS: Array<{
   { id: "tracker", label: "Health & Fever Tracker", icon: Thermometer },
   { id: "guide", label: "Symptom & First-Aid Guide", icon: HeartPulse },
   { id: "routine", label: "Recovery Routine", icon: CalendarClock },
+];
+
+const ADMIN_LOCKED_ITEMS: Array<{
+  id: ActiveTab;
+  label: string;
+  icon: typeof Database;
+}> = [{ id: "admin", label: "Admin Security Portal", icon: Lock }];
+
+const ADMIN_UNLOCKED_ITEMS: Array<{
+  id: ActiveTab;
+  label: string;
+  icon: typeof Database;
+}> = [
+  { id: "admin", label: "Admin Panel", icon: ShieldCheck },
   { id: "telemetry", label: "Stress Reports", icon: Activity },
   { id: "analytics", label: "Analytics & Alerts", icon: BarChart3 },
   { id: "students", label: "Students Directory", icon: Users },
-  { id: "relational", label: "Schema, Admin & Backup", icon: GitBranch },
+  { id: "relational", label: "Schema & Backup", icon: GitBranch },
 ];
 
 const ROLES: Array<{ id: ActiveRole; label: string }> = [
   { id: "Student", label: "Student" },
-  { id: "Counselor", label: "Counselor" },
   { id: "Admin", label: "Admin" },
 ];
 
@@ -55,6 +71,7 @@ export function Sidebar({
   onSelectTab,
   activeRole,
   onSelectRole,
+  isAdminAuthenticated,
   onOpenOrb,
   studentCount,
   reportCount,
@@ -62,6 +79,20 @@ export function Sidebar({
   mobileOpen,
   onCloseMobile,
 }: SidebarProps) {
+  const visibleItems =
+    activeRole === "Student"
+      ? STUDENT_NAV_ITEMS
+      : isAdminAuthenticated
+        ? ADMIN_UNLOCKED_ITEMS
+        : ADMIN_LOCKED_ITEMS;
+
+  const sectionLabel =
+    activeRole === "Student"
+      ? "Student Workspace"
+      : isAdminAuthenticated
+        ? "Admin Workspace"
+        : "Admin Gate (Locked)";
+
   const navContent = (
     <div className="flex h-full flex-col justify-between tab-sidebar-shell backdrop-blur-sm w-64">
       <div className="overflow-y-auto">
@@ -74,8 +105,8 @@ export function Sidebar({
           </span>
         </div>
 
-        {/* Active Role Switcher */}
-        <div className="px-3 pt-3 pb-2 border-b tab-divider">
+        {/* Strict Active Role Switcher */}
+        <div className="px-3 pt-3 pb-2.5 border-b tab-divider">
           <div className="px-1 pb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-slate-300/75">
             <Shield className="w-3.5 h-3.5 tab-accent-text" aria-hidden="true" />
             <span>Active Role</span>
@@ -83,7 +114,7 @@ export function Sidebar({
           <div
             role="group"
             aria-label="Switch active role"
-            className="grid grid-cols-3 gap-1 p-0.5 bg-[#090514] border tab-divider rounded-md"
+            className="grid grid-cols-2 gap-1 p-0.5 bg-[#090514] border tab-divider rounded-md"
           >
             {ROLES.map((r) => {
               const active = activeRole === r.id;
@@ -91,7 +122,11 @@ export function Sidebar({
                 <button
                   key={r.id}
                   type="button"
-                  onClick={() => onSelectRole(r.id)}
+                  aria-pressed={active}
+                  onClick={() => {
+                    onSelectRole(r.id);
+                    onCloseMobile();
+                  }}
                   className={`px-1.5 py-1.5 text-[11px] font-medium rounded transition-colors whitespace-nowrap ${
                     active
                       ? "tab-chip-active border"
@@ -106,7 +141,11 @@ export function Sidebar({
         </div>
 
         <nav aria-label="Primary navigation" className="px-3 py-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400/80">
+            {sectionLabel}
+          </div>
+
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             const itemTheme = TAB_THEMES[item.id];
@@ -138,6 +177,12 @@ export function Sidebar({
             );
           })}
 
+          {activeRole === "Admin" && !isAdminAuthenticated && (
+            <p className="px-2.5 pt-2 text-[11px] text-slate-400/85 leading-relaxed">
+              Sign in via the Admin Security Portal to unlock student records, reports, and schema tools.
+            </p>
+          )}
+
           <div className="pt-3 mt-3 border-t tab-divider">
             <button
               type="button"
@@ -159,13 +204,19 @@ export function Sidebar({
           <Database className="w-3.5 h-3.5 tab-accent-text" aria-hidden="true" />
           <span>6-Table 3NF Store</span>
         </div>
-        <div className="mt-1.5 tabular-nums font-mono text-[11px] text-slate-300/65 flex items-center gap-1.5 flex-wrap">
-          <span>{studentCount} stu</span>
-          <span aria-hidden="true">·</span>
-          <span>{reportCount} rpt</span>
-          <span aria-hidden="true">·</span>
-          <span>{factorCount} fac</span>
-        </div>
+        {activeRole === "Admin" && !isAdminAuthenticated ? (
+          <div className="mt-1.5 text-[11px] text-slate-400">
+            Admin login required to view counts
+          </div>
+        ) : (
+          <div className="mt-1.5 tabular-nums font-mono text-[11px] text-slate-300/65 flex items-center gap-1.5 flex-wrap">
+            <span>{studentCount} stu</span>
+            <span aria-hidden="true">·</span>
+            <span>{reportCount} rpt</span>
+            <span aria-hidden="true">·</span>
+            <span>{factorCount} fac</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ export interface PendingStudentProfile {
   email?: string;
   semester?: string;
   dept_id?: string | null;
+  dept_name?: string;
   class_section: string;
   roll_no: string;
   age: number;
@@ -274,7 +275,7 @@ function buildDoctorStyleSymptomFallback(
         "",
         "3. What To Avoid & Warning Signs (When to Seek Support):",
         "- Avoid late-night caffeine/energy drinks or pulling consecutive all-nighters.",
-        "- Talk to a parent, school counselor, or doctor if overwhelm feels unmanageable, lasts for weeks, or causes panic episodes or chest tightness.",
+        "- Talk to a parent, guardian, or licensed doctor if overwhelm feels unmanageable, lasts for weeks, or causes panic episodes or chest tightness.",
         "",
         "Note: General wellness support only—not a substitute for clinical care.",
       ].join("\n"),

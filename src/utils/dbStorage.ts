@@ -1,5 +1,6 @@
 import { EMPTY_DATABASE, STANDARD_WELLNESS_DISCLAIMER } from "../data/seedData";
 import type {
+  AdminSettings,
   Department,
   FeverStatus,
   ReportFactor,
@@ -13,9 +14,15 @@ import type {
 } from "../types";
 
 const DB_STORAGE_KEY = "health_ai_monitoring_db_v4";
+const ADMIN_SETTINGS_STORAGE_KEY = "health_ai_admin_settings_v1";
+export const INITIAL_MAX_ADMINS = 1;
+export const MAX_ADMINS_CEILING = 25;
+export const DEFAULT_MAX_LOGIN_ATTEMPTS = 2;
+export const MIN_LOGIN_ATTEMPTS = 1;
+export const MAX_LOGIN_ATTEMPTS_CEILING = 10;
 
 function isValidRole(role: unknown): role is UserRole {
-  return role === "Admin" || role === "Student" || role === "Counselor";
+  return role === "Admin" || role === "Student";
 }
 
 function isValidDepartment(item: unknown): item is Department {
@@ -64,9 +71,12 @@ function isValidStudent(item: unknown): item is Student {
 
 function normalizeStudent(raw: Student): Student {
   const cleanName = (raw.name || raw.full_name || "").trim();
+  const cleanDeptName =
+    typeof raw.dept_name === "string" && raw.dept_name.trim() ? raw.dept_name.trim() : undefined;
   return {
     student_id: raw.student_id.trim(),
     dept_id: typeof raw.dept_id === "string" && raw.dept_id.trim() ? raw.dept_id.trim() : null,
+    dept_name: cleanDeptName,
     user_id: typeof raw.user_id === "string" && raw.user_id.trim() ? raw.user_id.trim() : null,
     name: cleanName,
     full_name: cleanName,
@@ -182,6 +192,7 @@ export function enforceReferentialIntegrity(raw: Partial<StudentHealthDatabase>)
       user_id: uid,
       student_id: linkedStu,
       username: u.username.trim(),
+      display_name: typeof u.display_name === "string" && u.display_name.trim() ? u.display_name.trim() : undefined,
       password_hash: u.password_hash.trim(),
       role: u.role,
       created_at: u.created_at || new Date().toISOString().slice(0, 10),
@@ -285,8 +296,83 @@ export function saveDatabase(db: StudentHealthDatabase): boolean {
   }
 }
 
+export function normalizeAdminSettings(
+  raw: Partial<AdminSettings> | null | undefined,
+  currentAdminCount = 0
+): AdminSettings {
+  const minAllowedAdmins = Math.max(INITIAL_MAX_ADMINS, currentAdminCount);
+  const rawMaxAdmins =
+    typeof raw?.maxAdmins === "number" && Number.isFinite(raw.maxAdmins)
+      ? Math.round(raw.maxAdmins)
+      : INITIAL_MAX_ADMINS;
+  const maxAdmins = Math.min(
+    MAX_ADMINS_CEILING,
+    Math.max(minAllowedAdmins, rawMaxAdmins)
+  );
+
+  const rawMaxAttempts =
+    typeof raw?.maxLoginAttempts === "number" && Number.isFinite(raw.maxLoginAttempts)
+      ? Math.round(raw.maxLoginAttempts)
+      : DEFAULT_MAX_LOGIN_ATTEMPTS;
+  const maxLoginAttempts = Math.min(
+    MAX_LOGIN_ATTEMPTS_CEILING,
+    Math.max(MIN_LOGIN_ATTEMPTS, rawMaxAttempts)
+  );
+
+  return { maxAdmins, maxLoginAttempts };
+}
+
+export function loadAdminSettings(currentAdminCount = 0): AdminSettings {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return normalizeAdminSettings(null, currentAdminCount);
+    }
+    const raw = window.localStorage.getItem(ADMIN_SETTINGS_STORAGE_KEY);
+    if (!raw) {
+      const defaults = normalizeAdminSettings(null, currentAdminCount);
+      window.localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(defaults));
+      return defaults;
+    }
+    const parsed = JSON.parse(raw) as Partial<AdminSettings>;
+    return normalizeAdminSettings(parsed, currentAdminCount);
+  } catch {
+    return normalizeAdminSettings(null, currentAdminCount);
+  }
+}
+
+export function saveAdminSettings(
+  settings: Partial<AdminSettings>,
+  currentAdminCount = 0
+): AdminSettings {
+  const normalized = normalizeAdminSettings(settings, currentAdminCount);
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(normalized));
+    }
+  } catch {
+    // Ignore storage quota errors safely
+  }
+  return normalized;
+}
+
+export function resetAdminSettings(): AdminSettings {
+  const defaults: AdminSettings = {
+    maxAdmins: INITIAL_MAX_ADMINS,
+    maxLoginAttempts: DEFAULT_MAX_LOGIN_ATTEMPTS,
+  };
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(defaults));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  return defaults;
+}
+
 export function clearDatabase(): StudentHealthDatabase {
   saveDatabase(EMPTY_DATABASE);
+  resetAdminSettings();
   return EMPTY_DATABASE;
 }
 
@@ -337,6 +423,45 @@ function fallbackSaltedDigest(input: string): string {
   return `${part1}${part2}${part1}${part2}`;
 }
 
+export function validateStrongPassword(password: string): {
+  valid: boolean;
+  error?: string;
+  checks: {
+    minLength: boolean;
+    hasLetter: boolean;
+    hasNumber: boolean;
+    hasSymbol: boolean;
+  };
+} {
+  const minLength = password.length >= 8;
+  const hasLetter = /[A-Za-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSymbol = /[^A-Za-z0-9\s]/.test(password);
+  const valid = minLength && hasLetter && hasNumber && hasSymbol;
+  let error: string | undefined;
+  if (!minLength) {
+    error = "Password must be at least 8 characters long.";
+  } else if (!hasLetter || !hasNumber || !hasSymbol) {
+    error = "Password must include letters, numbers, and at least one symbol (e.g., !@#$%).";
+  }
+  return {
+    valid,
+    error,
+    checks: { minLength, hasLetter, hasNumber, hasSymbol },
+  };
+}
+
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const maxLen = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < maxLen; i++) {
+    const ca = i < a.length ? a.charCodeAt(i) : 0;
+    const cb = i < b.length ? b.charCodeAt(i) : 0;
+    diff |= ca ^ cb;
+  }
+  return diff === 0;
+}
+
 export async function hashPassword(rawPassword: string): Promise<string> {
   const clean = rawPassword.trim();
   const saltBytes = new Uint8Array(8);
@@ -360,6 +485,33 @@ export async function hashPassword(rawPassword: string): Promise<string> {
     const salt = Date.now().toString(16);
     return `sha256$${salt}$${fallbackSaltedDigest(`${salt}:${clean}`)}`;
   }
+}
+
+export async function verifyPassword(rawPassword: string, storedHash: string): Promise<boolean> {
+  const clean = rawPassword.trim();
+  if (!clean || !storedHash) return false;
+  const parts = storedHash.split("$");
+  if (parts.length !== 3 || parts[0] !== "sha256") return false;
+  const [, salt, expectedHex] = parts;
+  if (!salt || !expectedHex) return false;
+
+  try {
+    if (typeof crypto !== "undefined" && crypto.subtle) {
+      const encoded = new TextEncoder().encode(`${salt}:${clean}`);
+      const digest = await crypto.subtle.digest("SHA-256", encoded);
+      const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+      if (timingSafeStringEqual(hex, expectedHex)) return true;
+    }
+  } catch {
+    // Fallback below if crypto.subtle is unavailable
+  }
+
+  const fallbackHex = fallbackSaltedDigest(`${salt}:${clean}`);
+  return timingSafeStringEqual(fallbackHex, expectedHex);
+}
+
+export function getAdminCount(db: StudentHealthDatabase): number {
+  return db.users.filter((u) => u.role === "Admin").length;
 }
 
 function generatePrefixedId(existingIds: string[], prefix: string, baseStart: number): string {
@@ -508,14 +660,31 @@ export function insertUser(
   db: StudentHealthDatabase,
   input: {
     username: string;
+    display_name?: string;
     password_hash: string;
     role: UserRole;
     student_id?: string | null;
-  }
+  },
+  maxAdminsLimit?: number
 ): { ok: boolean; error?: string; db: StudentHealthDatabase; user?: UserAccount } {
   const username = input.username.trim();
+  const displayName = input.display_name?.trim() || undefined;
   if (!username) return { ok: false, error: "Username is required.", db };
   if (!input.password_hash) return { ok: false, error: "Password hash is required.", db };
+
+  const adminCount = getAdminCount(db);
+  const effectiveMaxAdmins =
+    typeof maxAdminsLimit === "number" && Number.isFinite(maxAdminsLimit)
+      ? Math.max(INITIAL_MAX_ADMINS, Math.round(maxAdminsLimit))
+      : loadAdminSettings(adminCount).maxAdmins;
+
+  if (input.role === "Admin" && adminCount >= effectiveMaxAdmins) {
+    return {
+      ok: false,
+      error: `Maximum limit of ${effectiveMaxAdmins} admin account${effectiveMaxAdmins === 1 ? "" : "s"} reached.`,
+      db,
+    };
+  }
   if (db.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
     return { ok: false, error: `Username "${username}" already exists.`, db };
   }
@@ -536,6 +705,7 @@ export function insertUser(
     user_id: generateNextUserId(db.users),
     student_id: studentId,
     username,
+    display_name: displayName,
     password_hash: input.password_hash,
     role: input.role,
     created_at: new Date().toISOString().slice(0, 10),
@@ -557,13 +727,33 @@ export function updateUser(
   userId: string,
   input: {
     username: string;
+    display_name?: string;
     role: UserRole;
     student_id?: string | null;
     password_hash?: string;
-  }
+  },
+  maxAdminsLimit?: number
 ): { ok: boolean; error?: string; db: StudentHealthDatabase } {
   const username = input.username.trim();
   if (!username) return { ok: false, error: "Username is required.", db };
+  const currentUser = db.users.find((u) => u.user_id === userId);
+  const adminCount = getAdminCount(db);
+  const effectiveMaxAdmins =
+    typeof maxAdminsLimit === "number" && Number.isFinite(maxAdminsLimit)
+      ? Math.max(INITIAL_MAX_ADMINS, Math.round(maxAdminsLimit))
+      : loadAdminSettings(adminCount).maxAdmins;
+
+  if (
+    input.role === "Admin" &&
+    currentUser?.role !== "Admin" &&
+    adminCount >= effectiveMaxAdmins
+  ) {
+    return {
+      ok: false,
+      error: `Maximum limit of ${effectiveMaxAdmins} admin account${effectiveMaxAdmins === 1 ? "" : "s"} reached.`,
+      db,
+    };
+  }
   if (db.users.some((u) => u.user_id !== userId && u.username.toLowerCase() === username.toLowerCase())) {
     return { ok: false, error: `Username "${username}" is already in use.`, db };
   }
@@ -584,6 +774,10 @@ export function updateUser(
       ? {
           ...u,
           username,
+          display_name:
+            input.display_name !== undefined
+              ? input.display_name.trim() || undefined
+              : u.display_name,
           role: input.role,
           student_id: studentId,
           password_hash: input.password_hash || u.password_hash,
@@ -603,7 +797,7 @@ export function updateUser(
 export function deleteUser(
   db: StudentHealthDatabase,
   userId: string
-): { ok: boolean; db: StudentHealthDatabase } {
+): { ok: boolean; error?: string; db: StudentHealthDatabase } {
   return {
     ok: true,
     db: {
@@ -621,6 +815,7 @@ export function insertStudent(
     email?: string;
     semester?: string;
     dept_id?: string | null;
+    dept_name?: string;
     user_id?: string | null;
     class_section: string;
     roll_no: string;
@@ -633,6 +828,8 @@ export function insertStudent(
   const cleanEmail = (input.email ?? "").trim();
   const cleanSemester = (input.semester ?? "Sem 1").trim() || "Sem 1";
   const deptId = input.dept_id?.trim() || null;
+  const linkedDept = deptId ? db.departments.find((d) => d.dept_id === deptId) : undefined;
+  const cleanDeptName = input.dept_name?.trim() || linkedDept?.dept_name || undefined;
   const userId = input.user_id?.trim() || null;
 
   if (!cleanName) return { ok: false, error: "Student name is required.", db };
@@ -665,6 +862,7 @@ export function insertStudent(
   const student: Student = {
     student_id: generateNextStudentId(db.students),
     dept_id: deptId,
+    dept_name: cleanDeptName,
     user_id: userId,
     name: cleanName,
     full_name: cleanName,
@@ -695,6 +893,7 @@ export function updateStudent(
     email?: string;
     semester?: string;
     dept_id?: string | null;
+    dept_name?: string;
     class_section: string;
     roll_no: string;
     age: number;
@@ -706,6 +905,8 @@ export function updateStudent(
   const cleanEmail = (input.email ?? "").trim();
   const cleanSemester = (input.semester ?? "Sem 1").trim() || "Sem 1";
   const deptId = input.dept_id?.trim() || null;
+  const linkedDept = deptId ? db.departments.find((d) => d.dept_id === deptId) : undefined;
+  const cleanDeptName = input.dept_name?.trim() || linkedDept?.dept_name || undefined;
 
   if (!cleanName || !cleanSection || !cleanRoll) {
     return { ok: false, error: "Name, class section, and roll number are required.", db };
@@ -746,6 +947,7 @@ export function updateStudent(
               email: cleanEmail,
               semester: cleanSemester,
               dept_id: deptId,
+              dept_name: cleanDeptName ?? s.dept_name,
               class_section: cleanSection,
               roll_no: cleanRoll,
               age: input.age,

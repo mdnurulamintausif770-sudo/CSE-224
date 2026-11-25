@@ -21,7 +21,6 @@ import {
 import { STANDARD_WELLNESS_DISCLAIMER, SUGGESTED_FACTOR_TEMPLATES } from "../data/seedData";
 import type {
   ActiveRole,
-  Department,
   FeverStatus,
   ReportFactor,
   StressFactor,
@@ -38,7 +37,6 @@ import type { PendingStudentProfile } from "../utils/surveyHelpers";
 
 interface DailyHealthTrackerProps {
   activeRole: ActiveRole;
-  departments: Department[];
   students: Student[];
   reports: StressReport[];
   stressFactors: StressFactor[];
@@ -146,7 +144,7 @@ function buildLocalTrendFallback(entries: StressReport[], studentLabel: string):
     recs.push("Prioritize rest, light meals, and steady oral fluids.");
   }
   if (avgStress >= 7) {
-    recs.push("Elevated stress detected—break tasks into 45-minute study blocks and speak with a counselor or advisor.");
+    recs.push("Elevated stress detected—break tasks into 45-minute study blocks and reach out to a parent, advisor, or healthcare professional.");
   }
   if (avgSleep < 7) {
     recs.push("Target 7.5–8.5 hours of sleep per night to support faster recovery.");
@@ -168,7 +166,6 @@ function buildLocalTrendFallback(entries: StressReport[], studentLabel: string):
 
 export function DailyHealthTracker({
   activeRole,
-  departments,
   students,
   reports,
   stressFactors,
@@ -188,7 +185,7 @@ export function DailyHealthTracker({
   const [draftFullName, setDraftFullName] = useState("");
   const [draftEmail, setDraftEmail] = useState("");
   const [draftSemester, setDraftSemester] = useState("Sem 1");
-  const [draftDeptId, setDraftDeptId] = useState("");
+  const [draftDeptName, setDraftDeptName] = useState("");
   const [draftClassSection, setDraftClassSection] = useState("");
   const [draftRollNo, setDraftRollNo] = useState("");
   const [draftAge, setDraftAge] = useState("19");
@@ -336,12 +333,17 @@ export function DailyHealthTracker({
       const cleanName = draftFullName.trim();
       const cleanEmail = draftEmail.trim();
       const cleanSemester = draftSemester.trim() || "Sem 1";
+      const cleanDeptName = draftDeptName.trim();
       const cleanSection = draftClassSection.trim().toUpperCase();
       const cleanRoll = draftRollNo.trim();
       const parsedAge = Number(draftAge);
 
       if (!cleanName) {
         setFormError("Please enter the student's full name.");
+        return;
+      }
+      if (!cleanDeptName) {
+        setFormError("Please enter your department name.");
         return;
       }
       if (!cleanSection) {
@@ -361,7 +363,7 @@ export function DailyHealthTracker({
         full_name: cleanName,
         email: cleanEmail,
         semester: cleanSemester,
-        dept_id: draftDeptId || null,
+        dept_name: cleanDeptName,
         class_section: cleanSection,
         roll_no: cleanRoll,
         age: parsedAge,
@@ -442,6 +444,7 @@ export function DailyHealthTracker({
     if (effectiveIntakeMode === "new") {
       setDraftFullName("");
       setDraftEmail("");
+      setDraftDeptName("");
       setDraftClassSection("");
       setDraftRollNo("");
       setIntakeMode("existing");
@@ -607,7 +610,6 @@ export function DailyHealthTracker({
 
   const canModifyEntry = (entry: StressReport) =>
     activeRole === "Admin" ||
-    activeRole === "Counselor" ||
     !selectedStudentId ||
     entry.student_id === selectedStudentId;
 
@@ -816,24 +818,17 @@ export function DailyHealthTracker({
                   />
                 </div>
                 <div>
-                  <label htmlFor="tr-dept" className="block text-xs font-medium text-slate-200/80 mb-1">
-                    Department
+                  <label htmlFor="tr-dept-name" className="block text-xs font-medium text-slate-200/80 mb-1">
+                    Department Name
                   </label>
-                  <select
-                    id="tr-dept"
-                    value={draftDeptId}
-                    onChange={(e) => setDraftDeptId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm tab-input rounded-md"
-                  >
-                    <option value="" className="bg-[#090514]">
-                      Unassigned
-                    </option>
-                    {departments.map((d) => (
-                      <option key={d.dept_id} value={d.dept_id} className="bg-[#090514]">
-                        {d.dept_id} · {d.dept_name}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    id="tr-dept-name"
+                    type="text"
+                    value={draftDeptName}
+                    onChange={(e) => setDraftDeptName(e.target.value)}
+                    placeholder="Enter your department name"
+                    className="w-full px-3 py-2 text-sm tab-input rounded-md placeholder:text-slate-400/45"
+                  />
                 </div>
                 <div>
                   <label htmlFor="tr-age" className="block text-xs font-medium text-slate-200/80 mb-1">

@@ -232,7 +232,7 @@ export function AnalyticsInsights({
             {reports.length}
           </div>
           <div className="mt-1 text-xs text-slate-300/65">
-            Active Role: {activeRole === "Counselor" ? "Counselor / Staff" : activeRole}
+            Active Role: {activeRole}
           </div>
         </div>
 
@@ -246,7 +246,7 @@ export function AnalyticsInsights({
             {highStressAlerts.length}
           </div>
           <div className="mt-1 text-xs text-slate-300/65">
-            Entries requiring counselor / wellness follow-up
+            Entries requiring admin or wellness follow-up
           </div>
         </div>
 
@@ -619,7 +619,9 @@ export function AnalyticsInsights({
                             </button>
                             <div className="text-[11px] text-slate-300/65">
                               {stu?.student_id} · {stu?.semester ?? "—"}
-                              {dept ? ` · ${dept.dept_name}` : ""}
+                              {dept?.dept_name || stu?.dept_name
+                                ? ` · ${dept?.dept_name ?? stu?.dept_name}`
+                                : ""}
                             </div>
                           </td>
                           <td className="py-3 px-4 font-mono tabular-nums text-slate-300/80 whitespace-nowrap">

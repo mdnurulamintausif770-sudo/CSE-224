@@ -12,6 +12,7 @@ interface StudentsDirectoryProps {
     email?: string;
     semester?: string;
     dept_id?: string | null;
+    dept_name?: string;
     class_section: string;
     roll_no: string;
     age: number;
@@ -27,6 +28,7 @@ interface StudentsDirectoryProps {
       email?: string;
       semester?: string;
       dept_id?: string | null;
+      dept_name?: string;
       class_section: string;
       roll_no: string;
       age: number;
@@ -53,7 +55,7 @@ export function StudentsDirectory({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [semester, setSemester] = useState("Sem 1");
-  const [deptId, setDeptId] = useState("");
+  const [deptName, setDeptName] = useState("");
   const [classSection, setClassSection] = useState("");
   const [rollNo, setRollNo] = useState("");
   const [age, setAge] = useState("19");
@@ -64,7 +66,7 @@ export function StudentsDirectory({
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editSemester, setEditSemester] = useState("");
-  const [editDeptId, setEditDeptId] = useState("");
+  const [editDeptName, setEditDeptName] = useState("");
   const [editSection, setEditSection] = useState("");
   const [editRollNo, setEditRollNo] = useState("");
   const [editAge, setEditAge] = useState("19");
@@ -137,6 +139,10 @@ export function StudentsDirectory({
       setFormError("Student name is required.");
       return;
     }
+    if (!deptName.trim()) {
+      setFormError("Department name is required.");
+      return;
+    }
     if (!classSection.trim()) {
       setFormError("Class section is required (e.g., CS-3A).");
       return;
@@ -154,7 +160,7 @@ export function StudentsDirectory({
       name: name.trim(),
       email: email.trim(),
       semester: semester.trim() || "Sem 1",
-      dept_id: deptId || null,
+      dept_name: deptName.trim(),
       class_section: classSection.trim().toUpperCase(),
       roll_no: rollNo.trim(),
       age: parsedAge,
@@ -167,7 +173,7 @@ export function StudentsDirectory({
     setName("");
     setEmail("");
     setSemester("Sem 1");
-    setDeptId("");
+    setDeptName("");
     setClassSection("");
     setRollNo("");
     setAge("19");
@@ -175,11 +181,12 @@ export function StudentsDirectory({
   }
 
   function openEditStudent(s: Student) {
+    const existingDept = s.dept_id ? deptMap.get(s.dept_id) : undefined;
     setEditingStudent(s);
     setEditName(s.name);
     setEditEmail(s.email);
     setEditSemester(s.semester);
-    setEditDeptId(s.dept_id ?? "");
+    setEditDeptName(existingDept?.dept_name ?? "");
     setEditSection(s.class_section);
     setEditRollNo(s.roll_no);
     setEditAge(String(s.age));
@@ -191,6 +198,10 @@ export function StudentsDirectory({
     if (!editingStudent) return;
     setEditError(null);
     const parsedAge = Number(editAge);
+    if (!editDeptName.trim()) {
+      setEditError("Department name is required.");
+      return;
+    }
     if (!Number.isInteger(parsedAge) || parsedAge < 12 || parsedAge > 45) {
       setEditError("Age must be between 12 and 45.");
       return;
@@ -199,7 +210,7 @@ export function StudentsDirectory({
       name: editName.trim(),
       email: editEmail.trim(),
       semester: editSemester.trim() || "Sem 1",
-      dept_id: editDeptId || null,
+      dept_name: editDeptName.trim(),
       class_section: editSection.trim().toUpperCase(),
       roll_no: editRollNo.trim(),
       age: parsedAge,
@@ -314,22 +325,17 @@ export function StudentsDirectory({
               </div>
 
               <div>
-                <label htmlFor="stu-dept" className="block text-xs font-medium text-slate-200/80 mb-1">
-                  dept_id (FK)
+                <label htmlFor="stu-dept-name" className="block text-xs font-medium text-slate-200/80 mb-1">
+                  department
                 </label>
-                <select
-                  id="stu-dept"
-                  value={deptId}
-                  onChange={(e) => setDeptId(e.target.value)}
+                <input
+                  id="stu-dept-name"
+                  type="text"
+                  value={deptName}
+                  onChange={(e) => setDeptName(e.target.value)}
+                  placeholder="Enter your department name"
                   className="w-full px-3 py-2 text-xs tab-input rounded-md"
-                >
-                  <option value="" className="bg-[#090514]">Unassigned</option>
-                  {departments.map((d) => (
-                    <option key={d.dept_id} value={d.dept_id} className="bg-[#090514]">
-                      {d.dept_id} — {d.dept_name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
@@ -448,7 +454,9 @@ export function StudentsDirectory({
                         </div>
                       </td>
                       <td className="py-3 px-4 text-xs text-slate-200/80 whitespace-nowrap">
-                        {dept ? `${dept.dept_name} (${dept.dept_id})` : "Unassigned"}
+                        {dept
+                          ? `${dept.dept_name} (${dept.dept_id})`
+                          : student.dept_name ?? "Not entered"}
                       </td>
                       <td className="py-3 px-4 text-xs text-slate-200/80 whitespace-nowrap">
                         {student.semester}
@@ -596,19 +604,14 @@ export function StudentsDirectory({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-300/80 mb-1">dept_id (FK)</label>
-                  <select
-                    value={editDeptId}
-                    onChange={(e) => setEditDeptId(e.target.value)}
+                  <label className="block text-xs text-slate-300/80 mb-1">department</label>
+                  <input
+                    type="text"
+                    value={editDeptName}
+                    onChange={(e) => setEditDeptName(e.target.value)}
+                    placeholder="Enter your department name"
                     className="w-full px-3 py-2 text-xs tab-input rounded-md"
-                  >
-                    <option value="" className="bg-[#090514]">Unassigned</option>
-                    {departments.map((d) => (
-                      <option key={d.dept_id} value={d.dept_id} className="bg-[#090514]">
-                        {d.dept_id} — {d.dept_name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="block text-xs text-slate-300/80 mb-1">class_section</label>

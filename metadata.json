@@ -1,7 +1,7 @@
 {
   "name": "Remix Campus Health Ledger",
   "description": "A minimalist DBMS Student Health Management System with an adaptive Gemini Flash health check-in survey and relational student health records.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

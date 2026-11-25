@@ -1,19 +1,15 @@
-import { Database, Sparkles } from "lucide-react";
+import { Lock, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { CosmicBackground } from "./CosmicBackground";
 
 interface OrbLauncherProps {
   onLaunchSurvey: () => void;
-  onOpenDatabase: () => void;
-  hasExistingRecords: boolean;
-  surveyCount: number;
+  onOpenAdminPortal: () => void;
 }
 
 export function OrbLauncher({
   onLaunchSurvey,
-  onOpenDatabase,
-  hasExistingRecords,
-  surveyCount,
+  onOpenAdminPortal,
 }: OrbLauncherProps) {
   return (
     <motion.div
@@ -31,16 +27,14 @@ export function OrbLauncher({
           Health AI Monitoring System
         </div>
 
-        {hasExistingRecords && (
-          <button
-            type="button"
-            onClick={onOpenDatabase}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium text-violet-100 bg-[#120926]/85 border border-violet-500/30 hover:border-violet-400/60 hover:text-violet-200 rounded-md transition-colors whitespace-nowrap"
-          >
-            <Database className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" />
-            <span className="tabular-nums">View Records ({surveyCount})</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onOpenAdminPortal}
+          className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium text-violet-100 bg-[#120926]/85 border border-violet-500/30 hover:border-violet-400/60 hover:text-violet-200 rounded-md transition-colors whitespace-nowrap"
+        >
+          <Lock className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" />
+          <span>Admin Portal</span>
+        </button>
       </header>
 
       {/* Centered Interactive 3D Purple Orb */}

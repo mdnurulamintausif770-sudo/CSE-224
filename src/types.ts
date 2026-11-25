@@ -1,6 +1,6 @@
-export type ActiveRole = "Student" | "Counselor" | "Admin";
+export type ActiveRole = "Student" | "Admin";
 
-export type UserRole = "Admin" | "Student" | "Counselor";
+export type UserRole = "Admin" | "Student";
 
 export interface Department {
   dept_id: string;
@@ -13,14 +13,31 @@ export interface UserAccount {
   user_id: string;
   student_id: string | null;
   username: string;
+  display_name?: string;
   password_hash: string;
   role: UserRole;
   created_at: string;
 }
 
+export interface AdminGuardState {
+  ip: string;
+  clientKey: string;
+  failedAttempts: number;
+  maxAttempts: number;
+  isBlocked: boolean;
+  blockedUntil: number | null;
+  remainingSeconds: number;
+}
+
+export interface AdminSettings {
+  maxAdmins: number;
+  maxLoginAttempts: number;
+}
+
 export interface Student {
   student_id: string;
   dept_id: string | null;
+  dept_name?: string;
   user_id: string | null;
   name: string;
   email: string;
@@ -121,6 +138,7 @@ export type ActiveTab =
   | "telemetry"
   | "analytics"
   | "students"
+  | "admin"
   | "relational";
 
 export interface StudentHealthDatabase {

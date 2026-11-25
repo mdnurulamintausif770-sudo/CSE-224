@@ -221,11 +221,11 @@ export function RecordInspectorModal({
                   <div className="mt-1 text-sm font-medium text-violet-50">{inspectedStudent.semester}</div>
                 </div>
                 <div className="p-3 bg-[#090514] border border-violet-500/20 rounded-md">
-                  <div className="text-xs text-violet-200/65 font-mono">dept_id (FK)</div>
+                  <div className="text-xs text-violet-200/65 font-mono">department</div>
                   <div className="mt-1 text-xs font-mono text-violet-100">
                     {inspectedStudentDept
-                      ? `${inspectedStudentDept.dept_id} · ${inspectedStudentDept.dept_name}`
-                      : inspectedStudent.dept_id ?? "Unassigned"}
+                      ? `${inspectedStudentDept.dept_name} (${inspectedStudentDept.dept_id})`
+                      : inspectedStudent.dept_name ?? inspectedStudent.dept_id ?? "Not entered"}
                   </div>
                 </div>
                 <div className="p-3 bg-[#090514] border border-violet-500/20 rounded-md">

@@ -1068,7 +1068,6 @@ export function RelationalExplorer({
                   className="px-3 py-2 text-xs tab-input rounded-md"
                 >
                   <option value="Student" className="bg-[#090514]">Student</option>
-                  <option value="Counselor" className="bg-[#090514]">Counselor</option>
                   <option value="Admin" className="bg-[#090514]">Admin</option>
                 </select>
                 <select
@@ -1139,7 +1138,7 @@ export function RelationalExplorer({
                         {u.student_id ?? "—"}
                       </td>
                       <td className="py-2.5 px-4 font-mono text-[11px] text-slate-400 max-w-[240px] truncate">
-                        {u.password_hash}
+                        sha256$•••••••• (Protected)
                       </td>
                       {isAdmin && (
                         <td className="py-2.5 px-4 text-right whitespace-nowrap">

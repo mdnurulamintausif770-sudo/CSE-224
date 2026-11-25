@@ -130,12 +130,123 @@ function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, num));
 }
 
+const DEFAULT_MAX_ADMIN_ATTEMPTS = 2;
+const ADMIN_COOLDOWN_MS = 15 * 60 * 1000;
+let currentMaxAdminAttempts = DEFAULT_MAX_ADMIN_ATTEMPTS;
+const adminGuardStore = new Map();
+
+function normalizeIp(raw) {
+  const clean = String(raw ?? "").trim();
+  if (!clean) return "unknown";
+  if (clean === "::1") return "127.0.0.1";
+  if (clean.startsWith("::ffff:")) return clean.slice(7);
+  return clean;
+}
+
+function extractClientIp(req) {
+  const xff = req.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.trim().length > 0) {
+    return normalizeIp(xff.split(",")[0]);
+  }
+  const realIp = req.headers["x-real-ip"];
+  if (typeof realIp === "string" && realIp.trim().length > 0) {
+    return normalizeIp(realIp);
+  }
+  return normalizeIp(req.ip || req.socket.remoteAddress || "unknown");
+}
+
+function sanitizeClientKey(raw) {
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  return /^[a-zA-Z0-9_-]{8,64}$/.test(trimmed) ? trimmed : "";
+}
+
+function readMergedGuard(ip, clientKey, maxAttemptsOverride) {
+  const now = Date.now();
+  const effectiveMax =
+    typeof maxAttemptsOverride === "number" && Number.isFinite(maxAttemptsOverride)
+      ? Math.round(clampNumber(maxAttemptsOverride, 1, 10, currentMaxAdminAttempts))
+      : currentMaxAdminAttempts;
+  const keys = [`ip:${ip}`];
+  if (clientKey) keys.push(`key:${clientKey}`);
+
+  let maxFailed = 0;
+  let maxBlockedUntil = null;
+
+  for (const k of keys) {
+    const rec = adminGuardStore.get(k);
+    if (!rec) continue;
+    if (rec.blockedUntil !== null && rec.blockedUntil <= now) {
+      adminGuardStore.delete(k);
+      continue;
+    }
+    if (rec.failedAttempts > maxFailed) maxFailed = rec.failedAttempts;
+    if (rec.blockedUntil !== null && (maxBlockedUntil === null || rec.blockedUntil > maxBlockedUntil)) {
+      maxBlockedUntil = rec.blockedUntil;
+    }
+  }
+
+  const isBlocked = maxBlockedUntil !== null && maxBlockedUntil > now;
+  const remainingSeconds = isBlocked ? Math.max(1, Math.ceil((maxBlockedUntil - now) / 1000)) : 0;
+
+  return {
+    ip,
+    clientKey: clientKey || "server-ip",
+    failedAttempts: isBlocked ? Math.max(effectiveMax, maxFailed) : maxFailed,
+    maxAttempts: effectiveMax,
+    isBlocked,
+    blockedUntil: isBlocked ? maxBlockedUntil : null,
+    remainingSeconds,
+  };
+}
+
 async function startServer() {
   const app = express();
+  app.set("trust proxy", 1);
   app.use(express.json({ limit: "10mb" }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", ok: true, model: GEMINI_MODEL });
+  });
+
+  app.get("/api/admin/guard-status", (req, res) => {
+    const ip = extractClientIp(req);
+    const clientKey = sanitizeClientKey(req.query.clientKey ?? req.headers["x-client-key"]);
+    const requestedMax = req.query.maxAttempts ? Number(req.query.maxAttempts) : undefined;
+    res.json(readMergedGuard(ip, clientKey, requestedMax));
+  });
+
+  app.post("/api/admin/guard-event", (req, res) => {
+    const body = req.body;
+    const ip = extractClientIp(req);
+    const clientKey = sanitizeClientKey(body?.clientKey ?? req.headers["x-client-key"]);
+    const keys = [`ip:${ip}`];
+    if (clientKey) keys.push(`key:${clientKey}`);
+
+    if (typeof body?.maxAttempts === "number" && Number.isFinite(body.maxAttempts)) {
+      currentMaxAdminAttempts = Math.round(clampNumber(body.maxAttempts, 1, 10, DEFAULT_MAX_ADMIN_ATTEMPTS));
+    }
+
+    const current = readMergedGuard(ip, clientKey, currentMaxAdminAttempts);
+    const now = Date.now();
+    const eventType = body?.eventType;
+
+    if (eventType === "failed_login") {
+      const nextFailed = current.failedAttempts + 1;
+      const nextBlockedUntil =
+        nextFailed >= current.maxAttempts ? now + ADMIN_COOLDOWN_MS : current.blockedUntil;
+      for (const k of keys) {
+        adminGuardStore.set(k, { failedAttempts: nextFailed, blockedUntil: nextBlockedUntil });
+      }
+    } else if (eventType === "login_success" && !current.isBlocked) {
+      for (const k of keys) {
+        adminGuardStore.delete(k);
+      }
+    } else if (eventType === "reset_locks") {
+      adminGuardStore.clear();
+    }
+
+    res.json(readMergedGuard(ip, clientKey, currentMaxAdminAttempts));
   });
 
   app.post("/api/voice/transcribe", async (req, res) => {
@@ -259,7 +370,7 @@ Structured Guidance & Practical Coping Rule:
 Structure your response cleanly using plain text line breaks (no markdown asterisks ** or # headers, no emojis):
 1. Clarifying Questions: Ask 2-3 brief, relevant questions.
 2. Practical Coping & Care Steps: Give clear, practical steps tailored to their selected stress factors and recent logs.
-3. What To Avoid & Warning Signs: Highlight common mistakes to avoid and red flags requiring immediate parent/counselor support or an in-person licensed doctor.
+3. What To Avoid & Warning Signs: Highlight common mistakes to avoid and red flags requiring immediate parent/guardian support or an in-person licensed doctor.
 4. Note: End with a brief reminder that this is wellness monitoring and guidance only — not a clinical diagnosis or emergency care.
 
 Topics to track: "symptoms", "sleep", "hydration", "screen_fatigue", "stress_mood", "physical_activity", "student_opinion".

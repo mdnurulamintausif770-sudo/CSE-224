@@ -139,7 +139,7 @@ const GUIDE_TOPICS: GuideTopic[] = [
       "Use 45-minute focused study blocks followed by a 10-minute screen-free break.",
       "Practice 4-4-6 slow breathing (inhale 4s, hold 4s, exhale 6s) before intense revision.",
       "Protect at least 7.5 hours of sleep—memory consolidation happens during rest.",
-      "Talk openly with a teacher, counselor, or family member if workload feels overwhelming.",
+      "Talk openly with a teacher, advisor, or family member if workload feels overwhelming.",
     ],
     whatToAvoid: [
       "Avoid pulling all-nighters or relying on high-caffeine energy drinks.",
@@ -149,7 +149,7 @@ const GUIDE_TOPICS: GuideTopic[] = [
     warningSigns: [
       "Persistent panic, inability to sleep for multiple nights, or chest tightness.",
       "Feeling hopeless, overwhelmed to the point of crisis, or unable to function daily.",
-      "Speak immediately with a trusted parent, school counselor, or healthcare professional.",
+      "Speak immediately with a trusted parent, guardian, or licensed doctor.",
     ],
   },
 ];

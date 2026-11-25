@@ -19,7 +19,6 @@ import { STANDARD_WELLNESS_DISCLAIMER, SUGGESTED_FACTOR_TEMPLATES } from "../dat
 import { DICTATION_LANGUAGES, useVoiceDictation } from "../hooks/useVoiceDictation";
 import type {
   ActiveTab,
-  Department,
   ExtractedSurveyMetrics,
   ReportFactor,
   StressFactor,
@@ -41,7 +40,6 @@ import {
 
 interface TextSurveyConsoleProps {
   viewMode: "entry" | "consultation";
-  departments: Department[];
   students: Student[];
   reports: StressReport[];
   stressFactors: StressFactor[];
@@ -63,7 +61,6 @@ interface TextSurveyConsoleProps {
 
 export function TextSurveyConsole({
   viewMode,
-  departments,
   students,
   reports,
   stressFactors,
@@ -81,7 +78,7 @@ export function TextSurveyConsole({
   const [draftFullName, setDraftFullName] = useState("");
   const [draftEmail, setDraftEmail] = useState("");
   const [draftSemester, setDraftSemester] = useState("Sem 1");
-  const [draftDeptId, setDraftDeptId] = useState("");
+  const [draftDeptName, setDraftDeptName] = useState("");
   const [draftClassSection, setDraftClassSection] = useState("");
   const [draftRollNo, setDraftRollNo] = useState("");
   const [draftAge, setDraftAge] = useState("");
@@ -276,12 +273,17 @@ export function TextSurveyConsole({
     const cleanName = draftFullName.trim();
     const cleanEmail = draftEmail.trim();
     const cleanSemester = draftSemester.trim() || "Sem 1";
+    const cleanDeptName = draftDeptName.trim();
     const cleanSection = draftClassSection.trim().toUpperCase();
     const cleanRoll = draftRollNo.trim();
     const parsedAge = Number(draftAge);
 
     if (!cleanName) {
       setIntakeError("Please enter the student's full name.");
+      return null;
+    }
+    if (!cleanDeptName) {
+      setIntakeError("Please enter your department name.");
       return null;
     }
     if (!cleanSection) {
@@ -313,7 +315,7 @@ export function TextSurveyConsole({
       full_name: cleanName,
       email: cleanEmail,
       semester: cleanSemester,
-      dept_id: draftDeptId || null,
+      dept_name: cleanDeptName,
       class_section: cleanSection,
       roll_no: cleanRoll,
       age: parsedAge,
@@ -379,7 +381,7 @@ export function TextSurveyConsole({
       actionable_tips: [
         "Maintain consistent sleep hours across the academic week.",
         "Stay hydrated with regular water intake during lectures and study sessions.",
-        "Use paced 45/10 study intervals and seek counselor support if stress remains high.",
+        "Use paced 45/10 study intervals and seek support from a parent, doctor, or campus admin if stress remains high.",
       ],
       disclaimer: STANDARD_WELLNESS_DISCLAIMER,
     };
@@ -674,7 +676,7 @@ export function TextSurveyConsole({
               Stress Report Committed ({committedResult.report.report_id})
             </h2>
             <p className="mt-1 text-sm text-slate-300/80">
-              Saved student profile <span className="font-mono tab-accent-text">{committedResult.student.student_id}</span> ({committedResult.student.full_name}) and linked record in <span className="font-mono">stress_reports</span>.
+              Saved student profile <span className="font-mono tab-accent-text">{committedResult.student.student_id}</span> ({committedResult.student.full_name}{committedResult.student.dept_name ? `, ${committedResult.student.dept_name}` : ""}) and linked record in <span className="font-mono">stress_reports</span>.
             </p>
           </div>
         </div>
@@ -898,7 +900,8 @@ export function TextSurveyConsole({
             <div className="text-xs sm:text-sm text-slate-200">
               Active session for{" "}
               <span className="font-semibold tab-accent-text">
-                {activeSubject.full_name} ({activeSubject.class_section})
+                {activeSubject.full_name} ({activeSubject.class_section}
+                {activeSubject.dept_name ? ` · ${activeSubject.dept_name}` : ""})
               </span>
               {messages.length > 0 ? ` · ${messages.length} chat messages` : ""}
             </div>
@@ -1065,24 +1068,17 @@ export function TextSurveyConsole({
                   />
                 </div>
                 <div>
-                  <label htmlFor="intake-dept" className="block text-xs font-medium text-slate-200/85 mb-1.5">
-                    Department (FK)
+                  <label htmlFor="intake-dept-name" className="block text-xs font-medium text-slate-200/85 mb-1.5">
+                    Department Name
                   </label>
-                  <select
-                    id="intake-dept"
-                    value={draftDeptId}
-                    onChange={(e) => setDraftDeptId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm tab-input rounded-md"
-                  >
-                    <option value="" className="bg-[#090514]">
-                      Unassigned
-                    </option>
-                    {departments.map((d) => (
-                      <option key={d.dept_id} value={d.dept_id} className="bg-[#090514]">
-                        {d.dept_id} · {d.dept_name}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    id="intake-dept-name"
+                    type="text"
+                    value={draftDeptName}
+                    onChange={(e) => setDraftDeptName(e.target.value)}
+                    placeholder="Enter your department name"
+                    className="w-full px-3 py-2 text-sm tab-input rounded-md placeholder:text-slate-400/45"
+                  />
                 </div>
                 <div>
                   <label htmlFor="intake-age" className="block text-xs font-medium text-slate-200/85 mb-1.5">

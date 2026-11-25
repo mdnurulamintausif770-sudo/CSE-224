@@ -100,6 +100,16 @@ export const TAB_THEMES: Record<ActiveTab, TabThemeConfig> = {
     secondaryHex: "#c084fc",
     dotClass: "bg-[#e879f9]",
   },
+  admin: {
+    id: "admin",
+    themeKey: "dbms",
+    title: "Admin Panel",
+    subtitle: "Student Problem Inspector & Chronological Submissions",
+    paletteName: "Futuristic Magenta-Purple",
+    primaryHex: "#e879f9",
+    secondaryHex: "#c084fc",
+    dotClass: "bg-[#e879f9]",
+  },
   relational: {
     id: "relational",
     themeKey: "dbms",

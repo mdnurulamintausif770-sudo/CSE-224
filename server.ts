@@ -151,12 +151,139 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
   return Math.min(max, Math.max(min, num));
 }
 
+const DEFAULT_MAX_ADMIN_ATTEMPTS = 2;
+const ADMIN_COOLDOWN_MS = 15 * 60 * 1000;
+let currentMaxAdminAttempts = DEFAULT_MAX_ADMIN_ATTEMPTS;
+
+interface ServerGuardRecord {
+  failedAttempts: number;
+  blockedUntil: number | null;
+}
+
+const adminGuardStore = new Map<string, ServerGuardRecord>();
+
+function normalizeIp(raw: string): string {
+  const clean = raw.trim();
+  if (!clean) return "unknown";
+  if (clean === "::1") return "127.0.0.1";
+  if (clean.startsWith("::ffff:")) return clean.slice(7);
+  return clean;
+}
+
+function extractClientIp(req: express.Request): string {
+  const xff = req.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.trim().length > 0) {
+    return normalizeIp(xff.split(",")[0]);
+  }
+  const realIp = req.headers["x-real-ip"];
+  if (typeof realIp === "string" && realIp.trim().length > 0) {
+    return normalizeIp(realIp);
+  }
+  return normalizeIp(req.ip || req.socket.remoteAddress || "unknown");
+}
+
+function sanitizeClientKey(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  return /^[a-zA-Z0-9_-]{8,64}$/.test(trimmed) ? trimmed : "";
+}
+
+function readMergedGuard(ip: string, clientKey: string, maxAttemptsOverride?: number): {
+  ip: string;
+  clientKey: string;
+  failedAttempts: number;
+  maxAttempts: number;
+  isBlocked: boolean;
+  blockedUntil: number | null;
+  remainingSeconds: number;
+} {
+  const now = Date.now();
+  const effectiveMax =
+    typeof maxAttemptsOverride === "number" && Number.isFinite(maxAttemptsOverride)
+      ? Math.round(clampNumber(maxAttemptsOverride, 1, 10, currentMaxAdminAttempts))
+      : currentMaxAdminAttempts;
+  const keys = [`ip:${ip}`];
+  if (clientKey) keys.push(`key:${clientKey}`);
+
+  let maxFailed = 0;
+  let maxBlockedUntil: number | null = null;
+
+  for (const k of keys) {
+    const rec = adminGuardStore.get(k);
+    if (!rec) continue;
+    if (rec.blockedUntil !== null && rec.blockedUntil <= now) {
+      adminGuardStore.delete(k);
+      continue;
+    }
+    if (rec.failedAttempts > maxFailed) maxFailed = rec.failedAttempts;
+    if (rec.blockedUntil !== null && (maxBlockedUntil === null || rec.blockedUntil > maxBlockedUntil)) {
+      maxBlockedUntil = rec.blockedUntil;
+    }
+  }
+
+  const isBlocked = maxBlockedUntil !== null && maxBlockedUntil > now;
+  const remainingSeconds = isBlocked ? Math.max(1, Math.ceil((maxBlockedUntil! - now) / 1000)) : 0;
+
+  return {
+    ip,
+    clientKey: clientKey || "server-ip",
+    failedAttempts: isBlocked ? Math.max(effectiveMax, maxFailed) : maxFailed,
+    maxAttempts: effectiveMax,
+    isBlocked,
+    blockedUntil: isBlocked ? maxBlockedUntil : null,
+    remainingSeconds,
+  };
+}
+
 async function createServer() {
   const app = express();
+  app.set("trust proxy", 1);
   app.use(express.json({ limit: "10mb" }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", ok: true, model: GEMINI_MODEL });
+  });
+
+  app.get("/api/admin/guard-status", (req, res) => {
+    const ip = extractClientIp(req);
+    const clientKey = sanitizeClientKey(req.query.clientKey ?? req.headers["x-client-key"]);
+    const requestedMax = req.query.maxAttempts ? Number(req.query.maxAttempts) : undefined;
+    res.json(readMergedGuard(ip, clientKey, requestedMax));
+  });
+
+  app.post("/api/admin/guard-event", (req, res) => {
+    const body = req.body as
+      | { eventType?: string; clientKey?: string; maxAttempts?: number }
+      | undefined;
+    const ip = extractClientIp(req);
+    const clientKey = sanitizeClientKey(body?.clientKey ?? req.headers["x-client-key"]);
+    const keys = [`ip:${ip}`];
+    if (clientKey) keys.push(`key:${clientKey}`);
+
+    if (typeof body?.maxAttempts === "number" && Number.isFinite(body.maxAttempts)) {
+      currentMaxAdminAttempts = Math.round(clampNumber(body.maxAttempts, 1, 10, DEFAULT_MAX_ADMIN_ATTEMPTS));
+    }
+
+    const current = readMergedGuard(ip, clientKey, currentMaxAdminAttempts);
+    const now = Date.now();
+    const eventType = body?.eventType;
+
+    if (eventType === "failed_login") {
+      const nextFailed = current.failedAttempts + 1;
+      const nextBlockedUntil =
+        nextFailed >= current.maxAttempts ? now + ADMIN_COOLDOWN_MS : current.blockedUntil;
+      for (const k of keys) {
+        adminGuardStore.set(k, { failedAttempts: nextFailed, blockedUntil: nextBlockedUntil });
+      }
+    } else if (eventType === "login_success" && !current.isBlocked) {
+      for (const k of keys) {
+        adminGuardStore.delete(k);
+      }
+    } else if (eventType === "reset_locks") {
+      adminGuardStore.clear();
+    }
+
+    res.json(readMergedGuard(ip, clientKey, currentMaxAdminAttempts));
   });
 
   // Voice-to-Text Dictation Endpoint (Gemini 4 Hydrogen inline audio -> plain text transcript in any language)
@@ -292,7 +419,7 @@ Structured Guidance & Practical Coping Rule (When the student reports symptoms l
 Structure your response cleanly using plain text line breaks (no markdown asterisks ** or # headers, no emojis) with these clear sections in the user's language:
 1. Clarifying Questions: Ask 2-3 brief, relevant questions (for example, how long the stress or symptom has lasted, contributing triggers like exams/workload/sleep, or temperature if feverish).
 2. Practical Coping & Care Steps: Give clear, practical steps tailored to their selected stress factors and recent logs (paced study blocks, sleep protection, steady hydration, slow breathing, rest, and light nutrition).
-3. What To Avoid & Warning Signs (When to Seek Support / See a Doctor): Highlight common mistakes to avoid (all-nighters, skipping fluids, unprescribed medicines) and clear red flags requiring immediate parent/counselor support or an in-person licensed doctor / urgent care.
+3. What To Avoid & Warning Signs (When to Seek Support / See a Doctor): Highlight common mistakes to avoid (all-nighters, skipping fluids, unprescribed medicines) and clear red flags requiring immediate parent/guardian support or an in-person licensed doctor / urgent care.
 4. Note: End with a brief, calm reminder that this is wellness monitoring and guidance only — it does not constitute a clinical diagnosis or emergency medical care.
 
 General Wellness Topics to also track naturally:
@@ -475,7 +602,7 @@ Produce accurate, conservative structured values (write student_opinion, ai_asse
 - wellness_index: integer 1-100 reflecting overall sleep, hydration, stress balance, and whether acute symptoms (like fever or pain) were reported.
 - student_opinion: concise 1-3 sentence synthesis capturing the student's reported symptoms, stress triggers, remarks, and personal feedback.
 - ai_assessment: clear 2-4 sentence supportive summary capturing reported stress factors/symptoms, practical coping guidance, and key warning signs to watch for.
-- actionable_tips: 3-5 practical, specific coping and self-care steps, things to avoid, and when to talk to a counselor/parent or licensed doctor.
+- actionable_tips: 3-5 practical, specific coping and self-care steps, things to avoid, and when to talk to a parent/guardian or licensed doctor.
 - disclaimer: clear note stating that this is wellness monitoring and guidance only, not a clinical diagnosis or emergency medical care.`;
 
     try {

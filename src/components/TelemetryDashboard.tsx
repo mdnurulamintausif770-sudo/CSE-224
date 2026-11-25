@@ -257,7 +257,7 @@ export function TelemetryDashboard({
   }
 
   const canReviseReport = (rpt: StressReport) => {
-    if (activeRole === "Admin" || activeRole === "Counselor") return true;
+    if (activeRole === "Admin") return true;
     // Student can revise their own entries (matching selectedStudentId, or any if none selected)
     return !selectedStudentId || rpt.student_id === selectedStudentId;
   };
@@ -368,7 +368,7 @@ export function TelemetryDashboard({
             </div>
           </div>
 
-          {/* Multi-criteria Counselor / Student Filter Bar */}
+          {/* Multi-criteria Student / Admin Filter Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 pt-1">
             <select
               value={studentIdFilter}
@@ -575,7 +575,9 @@ export function TelemetryDashboard({
                         </div>
                         <div className="text-xs text-slate-300/65">
                           {student?.semester ?? "—"} · {student?.class_section ?? "—"}
-                          {dept ? ` · ${dept.dept_name}` : ""}
+                          {dept?.dept_name || student?.dept_name
+                            ? ` · ${dept?.dept_name ?? student?.dept_name}`
+                            : ""}
                         </div>
                       </td>
                       <td className="py-3 px-4 font-mono text-xs text-slate-300/75 whitespace-nowrap tabular-nums">
